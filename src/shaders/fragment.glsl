@@ -1,14 +1,16 @@
-#pragma optionNV(unroll all)
-
 #define PI 3.1415926535897932384626433832795
 
 precision highp float;
 
+uniform uint uCopies;
+uniform uint uMilliseconds;
 uniform uint uSeconds;
 uniform uint uMinutes;
 uniform uint uHours;
+uniform bool uIsDark;
 
 varying vec2 vUv;
+varying vec3 vPosition;
 
 float sdCircle(vec2 p, float r) {
   return length(p) - r;
@@ -28,12 +30,22 @@ float opOnion(in float d, in float r) {
 
 vec4 stroke(in float sd, in vec4 color, in vec4 strokeColor, in float sh, in float th) {
   float shapeColor = 1.0 - smoothstep(th - sh, th, abs(sd));
-  return mix(color, strokeColor, vec4(shapeColor));
+
+  if (color.x == -1.0) {
+    return vec4(strokeColor.xyz, shapeColor);
+  } else {
+    return mix(color, strokeColor, vec4(shapeColor));
+  }
 }
 
-vec4 fill(in float sd, in vec4 color, in vec4 strokeColor, in float sh) {
-  float fillColor = 1.0 - smoothstep(0.0, sh, sd);
-  return mix(color, strokeColor, vec4(fillColor));
+vec4 fill(in float sd, in vec4 color, in vec4 fillColor, in float sh) {
+  float shapeColor = 1.0 - smoothstep(0.0, sh, sd);
+
+  if (color.x == -1.0) {
+    return vec4(fillColor.xyz, shapeColor);
+  } else {
+    return mix(color, fillColor, vec4(shapeColor));
+  }
 }
 
 float easeOutElastic(float x) {
@@ -50,13 +62,26 @@ float easeOutElastic(float x) {
 
 void main() {
   vec2 nUv = vUv.xy * 2.0 - 1.0; // normalized uv (-1.0 to 1.0 on both axis)
-  vec4 color = vec4(vec3(0.0), 0.0);
+  vec4 color = vec4(vec3(-1.0), 0.0);
   vec4 strokeColor = vec4(1.0);
   vec4 secondsStrokeColor = vec4(1.0, 0.0, 0.0, 1.0);
-  float sh = 0.005; // sharpness
+  float sh = 0.005/1.5; // sharpness
   float th = 0.05; // thickness
+  float timeOffset = 1.0 - (vPosition.z / float(uCopies));
 
-  color = stroke(sdCircle(nUv, 1.0 - th), color, strokeColor, sh, th / 2.0);
+  if (uIsDark == true) {
+    strokeColor = vec4(vec3(0.0), 1.0);
+    secondsStrokeColor = vec4(vec3(0.0), 1.0);
+  }
+
+  float mixAmount = 1.0 - pow(vPosition.z / float(uCopies), 3.0);
+  strokeColor = mix(strokeColor, vec4(0.0), vec4(vec3(mixAmount), 0.0));
+  secondsStrokeColor = mix(secondsStrokeColor, vec4(0.0), vec4(vec3(mixAmount), 0.0));
+  // color = mix(color, vec4(0.0), vec4(vec3(mixAmount), 0.0));
+
+  if (vPosition.z >= float(uCopies)) {
+    color = stroke(sdCircle(nUv, 1.0 - th), color, strokeColor, sh, th / 2.0);
+  }
 
   for (int i = 0; i < 4; i++) {
     float angle = float(i) * (2.0 * PI) / 4.0;
@@ -64,7 +89,7 @@ void main() {
     color = stroke(
       sdSegment(nUv,
         vec2(sin(angle), cos(angle)) * .85,
-        vec2(sin(angle), cos(angle)) * .93
+        vec2(sin(angle), cos(angle)) * .94
       ),
       color,
       strokeColor,
@@ -79,7 +104,7 @@ void main() {
     color = stroke(
       sdSegment(nUv,
         vec2(sin(angle), cos(angle)) * .87,
-        vec2(sin(angle), cos(angle)) * .93
+        vec2(sin(angle), cos(angle)) * .94
       ),
       color,
       strokeColor,
@@ -94,7 +119,7 @@ void main() {
     color = stroke(
       sdSegment(nUv,
         vec2(sin(angle), cos(angle)) * .90,
-        vec2(sin(angle), cos(angle)) * .93
+        vec2(sin(angle), cos(angle)) * .94
       ),
       color,
       strokeColor,
@@ -103,7 +128,7 @@ void main() {
     );
   }
 
-  float hoursAngle = float(uHours) * (2.0 * PI) / 12.0 + float(uMinutes) * (2.0 * PI) / 12.0 / 60.0;
+  float hoursAngle = float(uHours) * (2.0 * PI) / 12.0 + float(uMinutes) * (2.0 * PI) / 12.0 / 60.0 - timeOffset;
   color = stroke(
     opOnion(sdSegment(nUv, vec2(0.0, 0.0), vec2(sin(hoursAngle), cos(hoursAngle)) * .5), th / 3.0),
     color,
@@ -112,13 +137,13 @@ void main() {
     th / 5.0
   );
 
-  float minutesAngle = float(uMinutes) * (2.0 * PI) / 60.0 + float(uSeconds) * (2.0 * PI) / 60.0 / 60.0;
+  float minutesAngle = float(uMinutes) * (2.0 * PI) / 60.0 + float(uSeconds) * (2.0 * PI) / 60.0 / 60.0 - timeOffset;
   color = stroke(sdSegment(nUv, vec2(0.0, 0.0), vec2(sin(minutesAngle), cos(minutesAngle)) * .65), color, strokeColor, sh, th / 5.0);
 
-  color = fill(sdCircle(nUv, 0.025 + th / 5.0), color, vec4(1.0), sh);
-  color = fill(sdCircle(nUv, 0.025), color, vec4(1.0, 0.0, 0.0, 1.0), sh);
+  color = fill(sdCircle(nUv, 0.025 + th / 5.0), color, strokeColor, sh);
+  color = fill(sdCircle(nUv, 0.025), color, secondsStrokeColor, sh);
 
-  float secondsAngle = float(uSeconds) * (2.0 * PI) / 60.0;
+  float secondsAngle = float(uSeconds) * (2.0 * PI) / 60.0 + easeOutElastic(float(uMilliseconds) / 1000.0) * PI * (1.0 / 30.0) - timeOffset;
   color = stroke(
     sdSegment(nUv,
       vec2(sin(secondsAngle - PI), cos(secondsAngle - PI)) * .1,
@@ -129,6 +154,10 @@ void main() {
     sh,
     th / 7.0
   );
+
+  if (color.x == -1.0) {
+    discard;
+  }
 
   gl_FragColor = color;
 }
