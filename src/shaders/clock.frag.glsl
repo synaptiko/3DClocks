@@ -67,7 +67,7 @@ void main() {
   vec4 secondsStrokeColor = vec4(1.0, 0.0, 0.0, 1.0);
   float sh = 0.005/1.5; // sharpness
   float th = 0.05; // thickness
-  float timeOffset = 1.0 - (vPosition.z / float(uCopies));
+  float timeOffset = 0.0; // 1.0 - (vPosition.z / float(uCopies));
   float mixAmount = 1.0 - pow(vPosition.z / float(uCopies), 3.0);
 
   float onionTh = th;
