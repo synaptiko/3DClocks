@@ -7,7 +7,7 @@ uniform uint uMilliseconds;
 uniform uint uSeconds;
 uniform uint uMinutes;
 uniform uint uHours;
-uniform bool uIsDark;
+uniform float uCameraAngleCoef;
 
 varying vec2 vUv;
 varying vec3 vPosition;
@@ -31,8 +31,8 @@ float opOnion(in float d, in float r) {
 vec4 stroke(in float sd, in vec4 color, in vec4 strokeColor, in float sh, in float th) {
   float shapeColor = 1.0 - smoothstep(th - sh, th, abs(sd));
 
-  if (color.x == -1.0) {
-    return vec4(strokeColor.xyz, shapeColor);
+  if (color.r == -1.0) {
+    return vec4(strokeColor.rgb, shapeColor);
   } else {
     return mix(color, strokeColor, vec4(shapeColor));
   }
@@ -41,8 +41,8 @@ vec4 stroke(in float sd, in vec4 color, in vec4 strokeColor, in float sh, in flo
 vec4 fill(in float sd, in vec4 color, in vec4 fillColor, in float sh) {
   float shapeColor = 1.0 - smoothstep(0.0, sh, sd);
 
-  if (color.x == -1.0) {
-    return vec4(fillColor.xyz, shapeColor);
+  if (color.r == -1.0) {
+    return vec4(fillColor.rgb, shapeColor);
   } else {
     return mix(color, fillColor, vec4(shapeColor));
   }
@@ -68,16 +68,19 @@ void main() {
   float sh = 0.005/1.5; // sharpness
   float th = 0.05; // thickness
   float timeOffset = 1.0 - (vPosition.z / float(uCopies));
+  float mixAmount = 1.0 - pow(vPosition.z / float(uCopies), 3.0);
 
-  if (uIsDark == true) {
-    strokeColor = vec4(vec3(0.0), 1.0);
-    secondsStrokeColor = vec4(vec3(0.0), 1.0);
+  float onionTh = th;
+
+  if (vPosition.z < float(uCopies)) {
+    float mixAmountCamera = 1.0 - ((1.0 - mixAmount) * pow(uCameraAngleCoef, 0.75));
+
+    strokeColor = mix(strokeColor, vec4(0.0), vec4(vec3(mixAmountCamera), 0.0));
+    secondsStrokeColor = mix(secondsStrokeColor, vec4(0.0), vec4(vec3(mixAmountCamera), 0.0));
   }
 
-  float mixAmount = 1.0 - pow(vPosition.z / float(uCopies), 3.0);
-  strokeColor = mix(strokeColor, vec4(0.0), vec4(vec3(mixAmount), 0.0));
-  secondsStrokeColor = mix(secondsStrokeColor, vec4(0.0), vec4(vec3(mixAmount), 0.0));
-  // color = mix(color, vec4(0.0), vec4(vec3(mixAmount), 0.0));
+  sh = mix(sh, 0.06, mixAmount);
+  th = mix(th, 0.2, mixAmount);
 
   if (vPosition.z >= float(uCopies)) {
     color = stroke(sdCircle(nUv, 1.0 - th), color, strokeColor, sh, th / 2.0);
@@ -130,7 +133,7 @@ void main() {
 
   float hoursAngle = float(uHours) * (2.0 * PI) / 12.0 + float(uMinutes) * (2.0 * PI) / 12.0 / 60.0 - timeOffset;
   color = stroke(
-    opOnion(sdSegment(nUv, vec2(0.0, 0.0), vec2(sin(hoursAngle), cos(hoursAngle)) * .5), th / 3.0),
+    opOnion(sdSegment(nUv, vec2(0.0, 0.0), vec2(sin(hoursAngle), cos(hoursAngle)) * .5), onionTh / 3.0),
     color,
     strokeColor,
     sh,
@@ -155,7 +158,7 @@ void main() {
     th / 7.0
   );
 
-  if (color.x == -1.0) {
+  if (color.r == -1.0) {
     discard;
   }
 

@@ -1,13 +1,7 @@
-import {  Scene, PerspectiveCamera, WebGLRenderer, Mesh, PlaneGeometry, ShaderMaterial, Matrix4, Vector2 } from 'three';
+import {  Scene, PerspectiveCamera, WebGLRenderer, Mesh, PlaneGeometry, ShaderMaterial, Matrix4 } from 'three';
 import vertexShader from './shaders/vertex.glsl';
 import fragmentShader from './shaders/fragment.glsl';
-import finalPassVertexShader from './shaders/finalPassVertex.glsl';
-import finalPassFragmentShader from './shaders/finalPassFragment.glsl';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
 
 // Further inspiration and references:
 // https://threejs.org/examples/webgl_postprocessing_dof2.html
@@ -16,70 +10,39 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
 // https://threejs.org/docs/#examples/en/postprocessing/EffectComposer
 // https://simonharris.co/making-a-noise-film-grain-post-processing-effect-from-scratch-in-threejs/
 // https://blog.maximeheckel.com/posts/refraction-dispersion-and-other-shader-light-effects/
+// https://www.google.com/search?q=infinity+clocks&tbm=isch&ved=2ahUKEwj1xsjUvKL-AhVfhv0HHWeRCKAQ2-cCegQIABAA&oq=infinity&gs_lcp=CgNpbWcQARgBMgUIABCABDIHCAAQigUQQzIFCAAQgAQyBQgAEIAEMgUIABCABDIFCAAQgAQyBQgAEIAEMgUIABCABDIFCAAQgAQyBQgAEIAEUKcEWN8VYJ8haAJwAHgAgAG9AYgB_AeSAQM5LjKYAQCgAQGqAQtnd3Mtd2l6LWltZ7ABAMABAQ&sclient=img&ei=Cak1ZLWeMt-M9u8P56KigAo&bih=1330&biw=1280&client=firefox-b-d
+// https://cocopon.github.io/tweakpane/
 
 const renderer = new WebGLRenderer({
   antialias: true,
   alpha: true,
 });
-const bloomComposer = new EffectComposer(renderer);
 
 renderer.setSize(window.innerWidth, window.innerHeight);
-bloomComposer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 const scene = new Scene();
 const camera = new PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
 const orbitControls = new OrbitControls(camera, renderer.domElement);
-const renderScene = new RenderPass(scene, camera);
-const bloomPass = new UnrealBloomPass(new Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
 
 camera.position.z = 3.5;
 
 const degToRad = (degrees: number) => degrees * (Math.PI / 180);
+const radToDeg = (radians: number) => radians * (180 / Math.PI);
 
 orbitControls.enableDamping = true;
 
-orbitControls.minAzimuthAngle = -degToRad(40);
-orbitControls.maxAzimuthAngle = degToRad(40);
-orbitControls.minPolarAngle = degToRad(40);
-orbitControls.maxPolarAngle = degToRad(140);
+const minAzimuthAngle = -40;
+const maxAzimuthAngle = 40;
+const minPolarAngle = 40;
+const maxPolarAngle = 140;
 
-bloomPass.threshold = 0;
-bloomPass.strength = 1.25;
-bloomPass.radius = 0.3;
-
-bloomComposer.addPass(renderScene);
-bloomComposer.addPass(bloomPass);
-bloomComposer.renderToScreen = false;
-
-const finalPass = new ShaderPass(
-	new ShaderMaterial({
-		uniforms: {
-			baseTexture: { value: null },
-			bloomTexture: { value: bloomComposer.renderTarget2.texture }
-		},
-		vertexShader: finalPassVertexShader,
-		fragmentShader: finalPassFragmentShader,
-		defines: {}
-	}),
-  'baseTexture'
-);
-finalPass.needsSwap = true;
-
-const finalComposer = new EffectComposer(renderer);
-finalComposer.addPass(renderScene);
-finalComposer.addPass(finalPass);
+orbitControls.minAzimuthAngle = degToRad(minAzimuthAngle);
+orbitControls.maxAzimuthAngle = degToRad(maxAzimuthAngle);
+orbitControls.minPolarAngle = degToRad(minPolarAngle);
+orbitControls.maxPolarAngle = degToRad(maxPolarAngle);
 
 const material = new ShaderMaterial({
-  vertexShader,
-  fragmentShader,
-  transparent: true,
-  // To support back side, uncomment:
-  // side: DoubleSide,
-  // alphaToCoverage: true, // or depthWrite: false,
-});
-
-const darkMaterial = new ShaderMaterial({
   vertexShader,
   fragmentShader,
   transparent: true,
@@ -88,11 +51,7 @@ const darkMaterial = new ShaderMaterial({
 const copies = 12;
 
 material.uniforms.uCopies = { value: copies };
-material.uniforms.uIsDark = { value: false };
-darkMaterial.uniforms.uCopies = { value: copies };
-darkMaterial.uniforms.uIsDark = { value: true };
 
-let lastPlane: Mesh;
 for (let i = 0; i < copies; i += 1) {
   const geometry = new PlaneGeometry(5, 5);
   const transformationMatrix = new Matrix4();
@@ -102,22 +61,16 @@ for (let i = 0; i < copies; i += 1) {
 
   const plane = new Mesh(geometry, material);
 
-  // To support back side, we would need to dynamically re-assign renderOrder:
-  // plane.renderOrder = copies - i;
   plane.position.z = -copies;
   scene.add(plane);
-
-  lastPlane = plane;
 }
 
 function animate() {
 	requestAnimationFrame(animate);
   setCurrentTime();
+  setCurrentCameraAngle();
   orbitControls.update();
-  lastPlane.material = darkMaterial;
-  bloomComposer.render();
-  lastPlane.material = material;
-  finalComposer.render();
+  renderer.render(scene, camera);
 }
 animate();
 
@@ -128,11 +81,15 @@ function setCurrentTime() {
   material.uniforms.uSeconds = { value: now.getSeconds() };
   material.uniforms.uMinutes = { value: now.getMinutes() };
   material.uniforms.uHours = { value: now.getHours() };
+}
 
-  darkMaterial.uniforms.uMilliseconds = { value: now.getMilliseconds() };
-  darkMaterial.uniforms.uSeconds = { value: now.getSeconds() };
-  darkMaterial.uniforms.uMinutes = { value: now.getMinutes() };
-  darkMaterial.uniforms.uHours = { value: now.getHours() };
+function setCurrentCameraAngle() {
+  const azimuthalAngle = radToDeg(orbitControls.getAzimuthalAngle());
+  const polarAngle = radToDeg(orbitControls.getPolarAngle());
+  const normalizedAA = Math.abs(((azimuthalAngle - minAzimuthAngle) / (maxAzimuthAngle - minAzimuthAngle) - 0.5) * 2);
+  const normalizedPA = Math.abs(((polarAngle - minPolarAngle) / (maxPolarAngle - minPolarAngle) - 0.5) * 2);
+
+  material.uniforms.uCameraAngleCoef = { value: Math.max(normalizedAA, normalizedPA) };
 }
 
 window.addEventListener('mousedown', () => document.body.style.cursor = 'grabbing');
