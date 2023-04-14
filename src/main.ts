@@ -2,7 +2,9 @@ import { Scene, PerspectiveCamera, WebGLRenderer, sRGBEncoding, ACESFilmicToneMa
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { degToRad } from './utils';
 import { createClocks } from './clocks';
+import Stats from 'stats.js'
 
+const stats = new Stats()
 const renderer = new WebGLRenderer({
   antialias: true,
   alpha: true,
@@ -16,7 +18,7 @@ renderer.outputEncoding = sRGBEncoding;
 renderer.toneMapping = ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.5;
 
-camera.position.z = 3.75;
+camera.position.z = 8.0;
 
 orbitControls.enableDamping = true;
 orbitControls.minAzimuthAngle = degToRad(-40);
@@ -34,18 +36,23 @@ function onResize() {
 };
 
 function animate() {
-	requestAnimationFrame(animate);
+  stats.begin()
   orbitControls.update();
   clocks.updateTime();
   clocks.updateCameraAngle();
   renderer.render(scene, camera);
+  stats.end()
+	requestAnimationFrame(animate);
 }
 
 window.addEventListener('resize', onResize);
 window.addEventListener('mousedown', () => document.body.style.cursor = 'grabbing');
 window.addEventListener('mouseup', () => document.body.style.cursor = 'default');
 
+stats.showPanel(0)
+
 document.body.appendChild(renderer.domElement);
+document.body.appendChild(stats.dom)
 
 onResize();
 animate();
