@@ -2,9 +2,9 @@ name: Check code quality
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 jobs:
   check:
@@ -15,15 +15,7 @@ jobs:
       security-events: write
       actions: read
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Install dependencies and run checks
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16.13.1
-          cache: 'yarn'
-
-      - run: |
-          yarn install
-          yarn lint
+      - uses: actions/checkout@v3
+      - uses: volta-cli/action@v3
+      - run: yarn install
+      - run: yarn lint
