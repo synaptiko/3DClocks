@@ -1,0 +1,3 @@
+{
+  "overrides": [{ "files": ["*.glsl"], "options": { "parser": "glsl-parser" } }]
+}
