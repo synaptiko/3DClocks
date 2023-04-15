@@ -21,7 +21,7 @@ jobs:
         with:
           path: dist
           if-no-files-found: error
-      
+
   deploy:
     needs: build
     name: Deploy
